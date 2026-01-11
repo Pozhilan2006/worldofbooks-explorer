@@ -1,0 +1,108 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Navigation {
+  id            String     @id @default(uuid())
+  title         String
+  slug          String     @unique
+  sourceUrl     String     @unique
+  lastScrapedAt DateTime?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  categories    Category[]
+}
+
+model Category {
+  id            String     @id @default(uuid())
+  navigationId  String
+  parentId      String?
+  title         String
+  slug          String
+  sourceUrl     String     @unique
+  productCount  Int?
+  lastScrapedAt DateTime?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  navigation    Navigation @relation(fields: [navigationId], references: [id], onDelete: Cascade)
+  parent        Category?  @relation("CategoryTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children      Category[] @relation("CategoryTree")
+  products      Product[]
+
+  @@unique([navigationId, slug])
+}
+
+model Product {
+  id            String     @id @default(uuid())
+  categoryId    String?
+  sourceId      String     @unique
+  title         String
+  author        String?
+  price         Decimal?
+  currency      String?
+  imageUrl      String?
+  sourceUrl     String     @unique
+  lastScrapedAt DateTime?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  category      Category?  @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  detail        ProductDetail?
+  reviews       Review[]
+}
+
+model ProductDetail {
+  productId     String     @id
+  description   String?
+  specs         Json?
+  ratingsAvg    Decimal?
+  reviewsCount  Int?
+  publisher     String?
+  publicationDate DateTime?
+  isbn          String?
+  lastScrapedAt DateTime?
+
+  product       Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+model Review {
+  id        String   @id @default(uuid())
+  productId String
+  author    String?
+  rating    Int?
+  text      String?
+  createdAt DateTime @default(now())
+
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, author, text])
+}
+
+model ScrapeJob {
+  id         String   @id @default(uuid())
+  targetUrl  String
+  targetType String
+  status     String   @default("PENDING")
+  attempts   Int      @default(0)
+  errorLog   String?
+  startedAt  DateTime?
+  finishedAt DateTime?
+  createdAt  DateTime @default(now())
+
+  @@unique([targetUrl, targetType])
+}
+
+model ViewHistory {
+  id        String   @id @default(uuid())
+  userId    String?
+  sessionId String
+  pathJson  Json
+  createdAt DateTime @default(now())
+}
