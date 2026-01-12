@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import { QueryProvider } from '@/lib/query-provider';
+import { NavigationTracker } from '@/components/NavigationTracker';
 import './globals.css';
 
 const geistSans = Geist({
@@ -34,6 +35,7 @@ export default function RootLayout({
         <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
             <body className="antialiased">
                 <QueryProvider>
+                    <NavigationTracker />
                     {/* Skip to main content for keyboard navigation */}
                     <a href="#main-content" className="skip-to-main">
                         Skip to main content

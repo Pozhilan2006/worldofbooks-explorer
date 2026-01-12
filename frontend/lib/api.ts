@@ -102,3 +102,66 @@ export async function fetchProducts(
     return fetchAPI<PaginatedResponse<Product>>(endpoint);
 }
 
+/**
+ * View History Types
+ */
+export interface ViewHistory {
+    id: string;
+    sessionId: string;
+    productId?: string;
+    categoryId?: string;
+    path: string;
+    title?: string;
+    viewedAt: string;
+    product?: Product;
+    category?: {
+        id: string;
+        title: string;
+        slug: string;
+    };
+}
+
+export interface TrackViewDto {
+    path: string;
+    title?: string;
+    productId?: string;
+    categoryId?: string;
+}
+
+/**
+ * Track a page view
+ */
+export async function trackPageView(data: TrackViewDto): Promise<void> {
+    try {
+        await fetchAPI('/view-history', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        });
+    } catch (error) {
+        // Silently fail - don't block user experience
+        console.error('Failed to track page view:', error);
+    }
+}
+
+/**
+ * Get user's navigation history
+ */
+export async function getViewHistory(limit = 20): Promise<ViewHistory[]> {
+    return fetchAPI<ViewHistory[]>(`/view-history?limit=${limit}`);
+}
+
+/**
+ * Get recently viewed products
+ */
+export async function getRecentProducts(limit = 10): Promise<Product[]> {
+    return fetchAPI<Product[]>(`/view-history/products?limit=${limit}`);
+}
+
+/**
+ * Clear user's history
+ */
+export async function clearViewHistory(): Promise<void> {
+    await fetchAPI('/view-history', {
+        method: 'DELETE',
+    });
+}

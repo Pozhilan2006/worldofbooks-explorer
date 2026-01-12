@@ -1,13 +1,15 @@
-import { Module } from '@nestjs/common';
+import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_FILTER } from '@nestjs/core';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
+import { SessionMiddleware } from './common/middleware/session.middleware';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { validateEnv } from './config/env.validation';
 import { NavigationModule } from './modules/navigation/navigation.module';
 import { CategoryModule } from './modules/category/category.module';
 import { ProductModule } from './modules/product/product.module';
+import { ViewHistoryModule } from './modules/view-history/view-history.module';
 
 @Module({
     imports: [
@@ -22,6 +24,7 @@ import { ProductModule } from './modules/product/product.module';
         NavigationModule,
         CategoryModule,
         ProductModule,
+        ViewHistoryModule,
     ],
     controllers: [AppController],
     providers: [
@@ -33,4 +36,10 @@ import { ProductModule } from './modules/product/product.module';
         },
     ],
 })
-export class AppModule { }
+export class AppModule implements NestModule {
+    configure(consumer: MiddlewareConsumer) {
+        consumer
+            .apply(SessionMiddleware)
+            .forRoutes('*'); // Apply to all routes
+    }
+}
