@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
+import { QueryProvider } from '@/lib/query-provider';
 import './globals.css';
 
 const geistSans = Geist({
@@ -32,38 +33,40 @@ export default function RootLayout({
     return (
         <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
             <body className="antialiased">
-                {/* Skip to main content for keyboard navigation */}
-                <a href="#main-content" className="skip-to-main">
-                    Skip to main content
-                </a>
+                <QueryProvider>
+                    {/* Skip to main content for keyboard navigation */}
+                    <a href="#main-content" className="skip-to-main">
+                        Skip to main content
+                    </a>
 
-                {/* Main application wrapper */}
-                <div className="flex min-h-screen flex-col">
-                    {/* Header/Navigation will go here */}
-                    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-                        <div className="container mx-auto flex h-16 items-center px-4">
-                            <nav className="flex flex-1 items-center justify-between">
-                                <h1 className="text-xl font-bold">World of Books Explorer</h1>
-                                {/* Navigation items will be added here */}
-                            </nav>
-                        </div>
-                    </header>
+                    {/* Main application wrapper */}
+                    <div className="flex min-h-screen flex-col">
+                        {/* Header/Navigation will go here */}
+                        <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+                            <div className="container mx-auto flex h-16 items-center px-4">
+                                <nav className="flex flex-1 items-center justify-between">
+                                    <h1 className="text-xl font-bold">World of Books Explorer</h1>
+                                    {/* Navigation items will be added here */}
+                                </nav>
+                            </div>
+                        </header>
 
-                    {/* Main content area */}
-                    <main id="main-content" className="flex-1">
-                        {children}
-                    </main>
+                        {/* Main content area */}
+                        <main id="main-content" className="flex-1">
+                            {children}
+                        </main>
 
-                    {/* Footer */}
-                    <footer className="border-t py-6 md:py-0">
-                        <div className="container mx-auto flex flex-col items-center justify-between gap-4 px-4 md:h-16 md:flex-row">
-                            <p className="text-center text-sm leading-loose text-muted-foreground md:text-left">
-                                Built with Next.js and NestJS. © {new Date().getFullYear()} World of Books
-                                Explorer.
-                            </p>
-                        </div>
-                    </footer>
-                </div>
+                        {/* Footer */}
+                        <footer className="border-t py-6 md:py-0">
+                            <div className="container mx-auto flex flex-col items-center justify-between gap-4 px-4 md:h-16 md:flex-row">
+                                <p className="text-center text-sm leading-loose text-muted-foreground md:text-left">
+                                    Built with Next.js and NestJS. © {new Date().getFullYear()} World of Books
+                                    Explorer.
+                                </p>
+                            </div>
+                        </footer>
+                    </div>
+                </QueryProvider>
             </body>
         </html>
     );

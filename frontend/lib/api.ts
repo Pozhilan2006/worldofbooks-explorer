@@ -4,7 +4,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
  * API client configuration
  */
 export const apiClient = {
-    baseURL: `${API_BASE_URL}/api`,
+    baseURL: `${API_BASE_URL}`,
     timeout: 10000,
 };
 
@@ -41,10 +41,64 @@ export async function fetchAPI<T>(
 }
 
 /**
- * Health check endpoint
+ * Product Types
  */
-export async function checkHealth() {
-    return fetchAPI<{ status: string; timestamp: string; environment: string; version: string }>(
-        '/health',
-    );
+export interface Product {
+    id: string;
+    categoryId?: string;
+    sourceId: string;
+    title: string;
+    author?: string;
+    price?: string;
+    currency?: string;
+    imageUrl?: string;
+    sourceUrl: string;
+    category?: {
+        id: string;
+        title: string;
+        slug: string;
+    };
+    detail?: {
+        description?: string;
+        ratingsAvg?: string;
+        reviewsCount?: number;
+    };
 }
+
+export interface PaginatedResponse<T> {
+    data: T[];
+    meta: {
+        total: number;
+        page: number;
+        limit: number;
+        totalPages: number;
+    };
+}
+
+export interface ProductsQueryParams {
+    page?: number;
+    limit?: number;
+    search?: string;
+    categoryId?: string;
+    sortBy?: 'title' | 'price' | 'createdAt';
+    sortOrder?: 'asc' | 'desc';
+}
+
+/**
+ * Fetch products from the API
+ */
+export async function fetchProducts(
+    params: ProductsQueryParams = {},
+): Promise<PaginatedResponse<Product>> {
+    const queryParams = new URLSearchParams();
+
+    Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+            queryParams.append(key, String(value));
+        }
+    });
+
+    const endpoint = `/products?${queryParams.toString()}`;
+    return fetchAPI<PaginatedResponse<Product>>(endpoint);
+}
+
