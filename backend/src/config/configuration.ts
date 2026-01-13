@@ -13,9 +13,8 @@ export default () => ({
         logging: process.env.DATABASE_LOGGING === 'true',
     },
 
-    redis: {
-        url: process.env.REDIS_URL_INTERNAL,
-    },
+    // Redis config managed via src/redis/redis.config.ts
+    // redis: { ... },
 
     jwt: {
         secret: process.env.JWT_SECRET || 'default-secret-change-in-production',

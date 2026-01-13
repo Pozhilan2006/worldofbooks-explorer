@@ -14,15 +14,14 @@ import { handleCategory } from './scraper/handlers/category.handler';
 import { handleProduct } from './scraper/handlers/product.handler';
 import { ScraperStorage } from './scraper/utils/storage';
 import { retryWithBackoff, isRetryableError, sleep } from './scraper/utils/retry';
+// Check for Redis URL via helper (throws if missing)
+import { getRedisConnection } from '../redis/redis.config';
 
-// Check for Redis URL
-// Debug log (temporary)
-console.log('[DEBUG] REDIS_URL_INTERNAL:', process.env.REDIS_URL_INTERNAL);
-
-// Check for Redis URL
-if (!process.env.REDIS_URL_INTERNAL) {
-    console.error('[SCRAPE WORKER] REDIS_URL_INTERNAL missing');
-    // Prevent immediate crash loop on Render
+// Debug check
+try {
+    getRedisConnection();
+} catch (e) {
+    console.error('[SCRAPE WORKER] REDIS_URL missing');
     setTimeout(() => process.exit(1), 5000);
 }
 
@@ -86,9 +85,7 @@ new Worker(
         }
     },
     {
-        connection: {
-            url: process.env.REDIS_URL_INTERNAL,
-        },
+        connection: getRedisConnection(),
         concurrency: 1, // Keep at 1 for safety
     },
 );

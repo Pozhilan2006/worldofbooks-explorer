@@ -6,24 +6,19 @@ import { ScrapeStartupService } from './scrape-startup.service';
 import { ScrapeController } from './scrape.controller';
 import { ScrapeService } from './scrape.service';
 import { DatabaseModule } from '../../database/database.module';
+import { getRedisConnection } from '../../redis/redis.config';
 
 @Module({
   imports: [
     DatabaseModule,
-    // Only register Bull if Redis exists
-    ...(process.env.REDIS_URL_INTERNAL
-      ? [
-        // Configure global Bull settings with connection string
-        BullModule.forRoot({
-          connection: {
-            url: process.env.REDIS_URL_INTERNAL,
-          },
-        }),
-        BullModule.registerQueue({
-          name: 'scrape-queue',
-        }),
-      ]
-      : []),
+    // Register Bull with strict connection
+    // This will throw if REDIS_URL is missing, enforcing the single source of truth
+    BullModule.forRoot({
+      connection: getRedisConnection(),
+    }),
+    BullModule.registerQueue({
+      name: 'scrape-queue',
+    }),
   ],
   controllers: [ScrapeController],
   providers: [
@@ -40,18 +35,12 @@ export class ScrapeModule {
       module: ScrapeModule,
       imports: [
         DatabaseModule,
-        ...(process.env.REDIS_URL_INTERNAL
-          ? [
-            BullModule.forRoot({
-              connection: {
-                url: process.env.REDIS_URL_INTERNAL,
-              },
-            }),
-            BullModule.registerQueue({
-              name: 'scrape-queue',
-            }),
-          ]
-          : []),
+        BullModule.forRoot({
+          connection: getRedisConnection(),
+        }),
+        BullModule.registerQueue({
+          name: 'scrape-queue',
+        }),
       ],
       controllers: [ScrapeController],
       providers: [
