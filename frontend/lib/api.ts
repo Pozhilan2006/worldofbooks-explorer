@@ -1,25 +1,30 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
+// Use NEXT_PUBLIC_API_BASE_URL which should include /api path
+// Example: https://worldofbooks-backend.onrender.com/api
+// Default fallback for local development
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000/api';
 
 /**
  * Generic fetch wrapper with error handling
+ * usage: fetchAPI('/view-history', ...) -> calls ${API_BASE}/view-history
  */
 export async function fetchAPI<T>(
     path: string,
     options?: RequestInit,
 ): Promise<T> {
-    const response = await fetch(`${API_BASE_URL}${path}`, {
+    // Ensure path starts with /
+    const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+
+    const response = await fetch(`${API_BASE}${normalizedPath}`, {
         credentials: 'include', // Include cookies for session management
-        ...options,
         headers: {
             'Content-Type': 'application/json',
-            ...options?.headers,
+            ...(options?.headers || {}),
         },
+        ...options,
     });
 
     if (!response.ok) {
-        const error = await response.json().catch(() => ({
-            message: 'An error occurred',
-        }));
+        const error = await response.json().catch(() => ({}));
         throw new Error(error.message || `HTTP error ${response.status}`);
     }
 
