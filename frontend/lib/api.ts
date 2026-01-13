@@ -1,22 +1,17 @@
-// Use NEXT_PUBLIC_API_BASE for production URL, fallback to Render URL if missing
-const API_BASE =
-    process.env.NEXT_PUBLIC_API_BASE ??
-    'https://worldofbooks-backend.onrender.com/api';
-
+// Use NEXT_PUBLIC_API_BASE for production URL, fallback to local for development
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:3000/api';
 
 /**
  * Generic fetch wrapper with error handling
- * usage: fetchAPI('/view-history', ...) -> calls ${API_BASE}/view-history
  */
 export async function fetchAPI<T>(
     path: string,
     options?: RequestInit,
 ): Promise<T> {
-    // Ensure path starts with /
     const normalizedPath = path.startsWith('/') ? path : `/${path}`;
 
     const response = await fetch(`${API_BASE}${normalizedPath}`, {
-        credentials: 'include', // Include cookies for session management
+        credentials: 'include',
         headers: {
             'Content-Type': 'application/json',
             ...(options?.headers || {}),
@@ -33,11 +28,34 @@ export async function fetchAPI<T>(
 }
 
 /**
- * Product Types
+ * Type Definitions
  */
+
+export interface Navigation {
+    id: string;
+    title: string;
+    slug: string;
+    sourceUrl: string;
+    lastScrapedAt: string | null;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface Category {
+    id: string;
+    navigationId: string;
+    title: string;
+    slug: string;
+    sourceUrl: string;
+    productCount: number;
+    lastScrapedAt: string | null;
+    createdAt: string;
+    updatedAt: string;
+}
+
 export interface Product {
     id: string;
-    categoryId?: string;
+    categoryId: string;
     sourceId: string;
     title: string;
     author?: string;
@@ -45,16 +63,37 @@ export interface Product {
     currency?: string;
     imageUrl?: string;
     sourceUrl: string;
-    category?: {
-        id: string;
-        title: string;
-        slug: string;
-    };
-    detail?: {
-        description?: string;
-        ratingsAvg?: string;
-        reviewsCount?: number;
-    };
+    lastScrapedAt: string | null;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface Review {
+    id: string;
+    productId: string;
+    author?: string;
+    rating?: number;
+    text: string;
+    reviewDate?: string;
+    createdAt: string;
+}
+
+export interface RelatedProduct {
+    id: string;
+    productId: string;
+    relatedProductId: string;
+    relatedProduct?: Product;
+}
+
+export interface ProductDetail extends Product {
+    description?: string;
+    publisher?: string;
+    publicationDate?: string;
+    isbn?: string;
+    ratingsAvg?: number;
+    reviewsCount?: number;
+    reviews: Review[];
+    relatedProducts: RelatedProduct[];
 }
 
 export interface PaginatedResponse<T> {
@@ -76,43 +115,6 @@ export interface ProductsQueryParams {
     sortOrder?: 'asc' | 'desc';
 }
 
-/**
- * Fetch products from the API
- */
-export async function fetchProducts(
-    params: ProductsQueryParams = {},
-): Promise<PaginatedResponse<Product>> {
-    const queryParams = new URLSearchParams();
-
-    Object.entries(params).forEach(([key, value]) => {
-        if (value !== undefined && value !== null) {
-            queryParams.append(key, String(value));
-        }
-    });
-
-    const endpoint = `/products?${queryParams.toString()}`;
-    return fetchAPI<PaginatedResponse<Product>>(endpoint);
-}
-
-/**
- * View History Types
- */
-export interface ViewHistory {
-    id: string;
-    sessionId: string;
-    productId?: string;
-    categoryId?: string;
-    path: string;
-    title?: string;
-    viewedAt: string;
-    product?: Product;
-    category?: {
-        id: string;
-        title: string;
-        slug: string;
-    };
-}
-
 export interface TrackViewDto {
     path: string;
     title?: string;
@@ -121,39 +123,49 @@ export interface TrackViewDto {
 }
 
 /**
- * Track a page view
+ * API Functions
  */
-export async function trackPageView(data: TrackViewDto): Promise<void> {
-    try {
-        await fetchAPI('/view-history', {
+
+// Navigation API
+export const navigationApi = {
+    getAll: () => fetchAPI<Navigation[]>('/navigation'),
+    getById: (id: string) => fetchAPI<Navigation>(`/navigation/${id}`),
+};
+
+// Categories API
+export const categoriesApi = {
+    getAll: () => fetchAPI<Category[]>('/categories'),
+    getByNavigationId: (navigationId: string) =>
+        fetchAPI<Category[]>(`/categories?navigationId=${navigationId}`),
+    getById: (id: string) => fetchAPI<Category>(`/categories/${id}`),
+};
+
+// Products API
+export const productsApi = {
+    getAll: (params: ProductsQueryParams = {}) => {
+        const queryParams = new URLSearchParams();
+        Object.entries(params).forEach(([key, value]) => {
+            if (value !== undefined && value !== null) {
+                queryParams.append(key, String(value));
+            }
+        });
+        return fetchAPI<PaginatedResponse<Product>>(`/products?${queryParams.toString()}`);
+    },
+    getById: (id: string) => fetchAPI<ProductDetail>(`/products/${id}`),
+};
+
+// Scrape API
+export const scrapeApi = {
+    triggerNavigation: () => fetchAPI('/scrape/navigation', { method: 'POST' }),
+    triggerCategories: () => fetchAPI('/scrape/categories', { method: 'POST' }),
+    triggerProducts: () => fetchAPI('/scrape/products', { method: 'POST' }),
+};
+
+// View History API
+export const viewHistoryApi = {
+    track: (data: TrackViewDto) =>
+        fetchAPI('/view-history', {
             method: 'POST',
             body: JSON.stringify(data),
-        });
-    } catch (error) {
-        // Silently fail - don't block user experience
-        console.error('Failed to track page view:', error);
-    }
-}
-
-/**
- * Get user's navigation history
- */
-export async function getViewHistory(limit = 20): Promise<ViewHistory[]> {
-    return fetchAPI<ViewHistory[]>(`/view-history?limit=${limit}`);
-}
-
-/**
- * Get recently viewed products
- */
-export async function getRecentProducts(limit = 10): Promise<Product[]> {
-    return fetchAPI<Product[]>(`/view-history/products?limit=${limit}`);
-}
-
-/**
- * Clear user's history
- */
-export async function clearViewHistory(): Promise<void> {
-    await fetchAPI('/view-history', {
-        method: 'DELETE',
-    });
-}
+        }),
+};

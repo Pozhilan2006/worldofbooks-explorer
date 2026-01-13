@@ -1,22 +1,25 @@
 'use client';
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { navigationApi, scrapeApi } from '@/lib/api';
+import { categoriesApi, scrapeApi } from '@/lib/api';
 import Link from 'next/link';
 import { Navigation } from '@/components/Navigation';
+import { use } from 'react';
 
-export default function HomePage() {
+export default function NavigationPage({ params }: { params: Promise<{ id: string }> }) {
+    const resolvedParams = use(params);
+    const navigationId = resolvedParams.id;
     const queryClient = useQueryClient();
 
     const { data, isLoading, error } = useQuery({
-        queryKey: ['navigation'],
-        queryFn: navigationApi.getAll,
+        queryKey: ['categories', navigationId],
+        queryFn: () => categoriesApi.getByNavigationId(navigationId),
     });
 
     const scrapeMutation = useMutation({
-        mutationFn: scrapeApi.triggerNavigation,
+        mutationFn: scrapeApi.triggerCategories,
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['navigation'] });
+            queryClient.invalidateQueries({ queryKey: ['categories', navigationId] });
         },
     });
 
@@ -25,23 +28,28 @@ export default function HomePage() {
             <Navigation />
 
             <main className="container mx-auto px-4 py-8">
-                <div className="max-w-6xl mx-auto">
+                <div className="max-w-7xl mx-auto">
+                    <div className="mb-6">
+                        <Link
+                            href="/"
+                            className="text-blue-600 hover:text-blue-800 hover:underline inline-flex items-center"
+                        >
+                            <span className="mr-2">←</span> Back to Home
+                        </Link>
+                    </div>
+
                     <div className="flex justify-between items-center mb-8">
                         <div>
-                            <h1 className="text-4xl font-bold text-gray-900 mb-2">
-                                Explore World of Books
-                            </h1>
-                            <p className="text-gray-600">
-                                Browse categories and discover your next great read
-                            </p>
+                            <h1 className="text-4xl font-bold text-gray-900 mb-2">Categories</h1>
+                            <p className="text-gray-600">Browse categories to find products</p>
                         </div>
                         <button
                             onClick={() => scrapeMutation.mutate()}
                             disabled={scrapeMutation.isPending}
                             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors font-medium"
-                            aria-label="Refresh navigation data"
+                            aria-label="Refresh categories"
                         >
-                            {scrapeMutation.isPending ? 'Scraping...' : 'Refresh Data'}
+                            {scrapeMutation.isPending ? 'Scraping...' : 'Refresh Categories'}
                         </button>
                     </div>
 
@@ -58,8 +66,8 @@ export default function HomePage() {
                     )}
 
                     {isLoading && (
-                        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                            {[1, 2, 3, 4, 5, 6].map((i) => (
+                        <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4">
+                            {[...Array(12)].map((_, i) => (
                                 <div
                                     key={i}
                                     className="h-32 bg-gray-200 animate-pulse rounded-lg"
@@ -70,42 +78,38 @@ export default function HomePage() {
 
                     {error && (
                         <div className="p-12 bg-red-50 text-red-800 rounded-lg text-center border border-red-200">
-                            <p className="text-xl font-semibold mb-2">
-                                Failed to load navigation
-                            </p>
-                            <p className="text-sm">
-                                Please check your backend connection at {process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:3000/api'}
-                            </p>
+                            <p className="text-xl font-semibold mb-2">Failed to load categories</p>
+                            <p className="text-sm">Please check your backend connection</p>
                         </div>
                     )}
 
                     {data && data.length === 0 && (
                         <div className="p-12 bg-yellow-50 text-yellow-800 rounded-lg text-center border border-yellow-200">
-                            <p className="text-xl font-semibold mb-2">
-                                No navigation data found
-                            </p>
+                            <p className="text-xl font-semibold mb-2">No categories found</p>
                             <p className="text-sm mb-4">
-                                Click "Refresh Data" to scrape navigation from World of Books
+                                Click "Refresh Categories" to scrape data
                             </p>
                         </div>
                     )}
 
                     {data && data.length > 0 && (
-                        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                            {data.map((heading) => (
+                        <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4">
+                            {data.map((category) => (
                                 <Link
-                                    key={heading.id}
-                                    href={`/navigation/${heading.id}`}
-                                    className="block p-6 bg-white rounded-lg shadow-md hover:shadow-xl transition-shadow border border-gray-200 group"
+                                    key={category.id}
+                                    href={`/categories/${category.id}`}
+                                    className="block p-5 bg-white rounded-lg shadow-md hover:shadow-xl transition-shadow border border-gray-200 group"
                                 >
-                                    <h2 className="text-2xl font-bold text-gray-900 mb-3 group-hover:text-blue-600 transition-colors">
-                                        {heading.title}
+                                    <h2 className="text-lg font-bold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors">
+                                        {category.title}
                                     </h2>
-                                    <p className="text-sm text-gray-500 mb-4 break-all line-clamp-2">
-                                        {heading.sourceUrl}
-                                    </p>
-                                    <p className="text-blue-600 font-medium flex items-center">
-                                        View Categories
+                                    {category.productCount > 0 && (
+                                        <p className="text-sm text-gray-500 mb-3">
+                                            {category.productCount} products
+                                        </p>
+                                    )}
+                                    <p className="text-blue-600 text-sm font-medium flex items-center">
+                                        View Products
                                         <span className="ml-2">→</span>
                                     </p>
                                 </Link>
