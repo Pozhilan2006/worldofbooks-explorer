@@ -1,59 +1,57 @@
-import { Injectable, Logger, Optional } from '@nestjs/common';
+import { Injectable, Logger, Optional, OnModuleInit } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 
 @Injectable()
-export class ScrapeService {
+export class ScrapeService implements OnModuleInit {
     private readonly logger = new Logger(ScrapeService.name);
+    private readonly queueEnabled: boolean;
 
     constructor(
         private prisma: PrismaService,
         @Optional()
         @InjectQueue('scrape-queue') private scrapeQueue?: Queue,
-    ) { }
+    ) {
+        this.queueEnabled = !!this.scrapeQueue;
+    }
 
-    // NAVIGATION RULES
+    /**
+     * Auto-bootstrap: Trigger initial scrape on first startup if DB is empty
+     */
+    async onModuleInit() {
+        if (!this.queueEnabled) {
+            this.logger.warn('[SCRAPE BOOT] Queue disabled, skipping auto scrape');
+            return;
+        }
+
+        const navCount = await this.prisma.navigation.count();
+
+        if (navCount > 0) {
+            this.logger.log('[SCRAPE BOOT] Navigation already exists, skipping');
+            return;
+        }
+
+        this.logger.log('[SCRAPE BOOT] No navigation found. Triggering initial scrape');
+        await this.scrapeNavigation();
+    }
+
+    /**
+     * NAVIGATION SCRAPE - Queue-based only
+     * Enqueues navigation scraping job without blocking
+     */
     async scrapeNavigation() {
-        if (!this.scrapeQueue) {
-            this.logger.warn('[SCRAPE] Queue disabled, skipping job enqueue');
+        if (!this.queueEnabled) {
+            this.logger.warn('[SCRAPE] Queue disabled');
             return { triggered: false, reason: 'queue_disabled' };
         }
 
-        const count = await this.prisma.navigation.count();
-
-        if (count === 0) {
-            this.logger.log('Navigation empty → scraping');
-            await this.scrapeQueue.add('navigation', {
-                url: 'https://www.worldofbooks.com/en-gb',
-            });
-            return { triggered: true, reason: 'empty' };
-        }
-
-        const last = await this.prisma.navigation.findFirst({
-            orderBy: { lastScrapedAt: 'desc' },
+        this.logger.log('[SCRAPE] Enqueuing navigation scrape job');
+        await this.scrapeQueue!.add('navigation', {
+            url: 'https://www.worldofbooks.com/en-gb',
         });
 
-        if (!last?.lastScrapedAt) {
-            this.logger.log('Navigation has no lastScrapedAt → scraping');
-            await this.scrapeQueue.add('navigation', {
-                url: 'https://www.worldofbooks.com/en-gb',
-            });
-            return { triggered: true, reason: 'no_timestamp' };
-        }
-
-        const hours = (Date.now() - last.lastScrapedAt.getTime()) / 36e5;
-
-        if (hours > 24) {
-            this.logger.log(`Navigation stale (${hours.toFixed(1)}h) → re-scraping`);
-            await this.scrapeQueue.add('navigation', {
-                url: 'https://www.worldofbooks.com/en-gb',
-            });
-            return { triggered: true, reason: 'stale', hours: hours.toFixed(1) };
-        }
-
-        this.logger.log(`Navigation fresh (${hours.toFixed(1)}h) → skipping`);
-        return { triggered: false, reason: 'fresh', hours: hours.toFixed(1) };
+        return { triggered: true, reason: 'queued' };
     }
 
     // CATEGORY RULES
