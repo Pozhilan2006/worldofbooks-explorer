@@ -3,10 +3,16 @@ import { PrismaService } from '../../database/prisma.service';
 import { CreateCategoryDto, UpdateCategoryDto, CategoryQueryDto } from './dto/category.dto';
 import { PaginationQueryDto, PaginatedResponse } from '../../common/dto/pagination.dto';
 import { Category } from '@prisma/client';
+import { ScrapePolicyService } from '../scrape/scrape-policy.service';
+import { ScrapeQueueService } from '../scrape/scrape-queue.service';
 
 @Injectable()
 export class CategoryService {
-    constructor(private readonly prisma: PrismaService) { }
+    constructor(
+        private readonly prisma: PrismaService,
+        private readonly scrapePolicy: ScrapePolicyService,
+        private readonly scrapeQueue: ScrapeQueueService,
+    ) { }
 
     async create(createDto: CreateCategoryDto): Promise<Category> {
         // Verify navigation exists
@@ -83,6 +89,14 @@ export class CategoryService {
 
         if (queryDto.navigationId) {
             where.navigationId = queryDto.navigationId;
+
+            // 🔹 CHECK IF SCRAPE IS NEEDED (EMPTY OR >24H)
+            if (await this.scrapePolicy.shouldScrapeCategories(queryDto.navigationId)) {
+                console.log(`[CATEGORY] Triggering scrape for navigation ${queryDto.navigationId} - empty or stale (>24h)`);
+                await this.scrapeQueue.enqueueCategory(queryDto.navigationId);
+            } else {
+                console.log(`[CATEGORY] Using cached data for navigation ${queryDto.navigationId} - fresh (<24h)`);
+            }
         }
 
         if (queryDto.parentId) {

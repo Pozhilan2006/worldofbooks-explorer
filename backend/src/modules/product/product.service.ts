@@ -28,7 +28,7 @@ export class ProductService {
     private readonly prisma: PrismaService,
     private readonly scrapePolicy: ScrapePolicyService,
     private readonly scrapeQueue: ScrapeQueueService,
-  ) {}
+  ) { }
 
   async create(createDto: CreateProductDto): Promise<Product> {
     if (createDto.categoryId) {
@@ -84,6 +84,14 @@ export class ProductService {
 
     if (queryDto.categoryId) {
       where.categoryId = queryDto.categoryId;
+
+      // 🔹 CHECK IF SCRAPE IS NEEDED (EMPTY OR >12H)
+      if (await this.scrapePolicy.shouldScrapeProducts(queryDto.categoryId)) {
+        console.log(`[PRODUCT] Triggering scrape for category ${queryDto.categoryId} - empty or stale (>12h)`);
+        await this.scrapeQueue.enqueueProduct(queryDto.categoryId);
+      } else {
+        console.log(`[PRODUCT] Using cached data for category ${queryDto.categoryId} - fresh (<12h)`);
+      }
     }
 
     if (queryDto.author) {
@@ -154,15 +162,7 @@ export class ProductService {
 
     // 🔹 MANUAL SCRAPE DECISION (REQUIRED)
     if (!product) {
-      await this.scrapeQueue.enqueueProduct(
-        `https://www.worldofbooks.com/en-gb/products/${id}`,
-      );
       throw new NotFoundException(`Product with ID ${id} not found`);
-    }
-
-    // 🔹 TTL CHECK (NON-BLOCKING)
-    if (this.scrapePolicy.isStale(product.lastScrapedAt, 12)) {
-      await this.scrapeQueue.enqueueProduct(product.sourceUrl);
     }
 
     return product;
@@ -178,16 +178,9 @@ export class ProductService {
     });
 
     if (!product) {
-      await this.scrapeQueue.enqueueProduct(
-        `https://www.worldofbooks.com/en-gb/products/${sourceId}`,
-      );
       throw new NotFoundException(
         `Product with sourceId ${sourceId} not found`,
       );
-    }
-
-    if (this.scrapePolicy.isStale(product.lastScrapedAt, 12)) {
-      await this.scrapeQueue.enqueueProduct(product.sourceUrl);
     }
 
     return product;

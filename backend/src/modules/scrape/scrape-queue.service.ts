@@ -1,14 +1,29 @@
-import { Injectable } from '@nestjs/common';
+/**
+ * Scrape Queue Service
+ * 
+ * Manages BullMQ job queue for scraping tasks.
+ * Only initializes when SCRAPE_QUEUE_ENABLED=true.
+ */
+
+import { Injectable, OnModuleInit } from '@nestjs/common';
 import { Queue } from 'bullmq';
 import crypto from 'crypto';
 
 @Injectable()
-export class ScrapeQueueService {
-  private readonly queue: Queue;
+export class ScrapeQueueService implements OnModuleInit {
+  private queue?: Queue;
+  private readonly isEnabled: boolean;
 
   constructor() {
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('[SCRAPE QUEUE] Disabled outside production');
+    this.isEnabled = process.env.SCRAPE_QUEUE_ENABLED === 'true';
+
+    if (!this.isEnabled) {
+      console.log('[SCRAPE QUEUE] Disabled - skipping Redis connection');
+      return;
+    }
+
+    if (!process.env.REDIS_URL_INTERNAL) {
+      console.warn('[SCRAPE QUEUE] REDIS_URL_INTERNAL not set - queue will not work');
       return;
     }
 
@@ -17,11 +32,15 @@ export class ScrapeQueueService {
         url: process.env.REDIS_URL_INTERNAL,
       },
     });
-
-    console.log('[SCRAPE QUEUE] Connected to Redis');
   }
 
-  // 🔹 JOB ID = hash(url + type)
+  async onModuleInit() {
+    if (this.isEnabled && this.queue) {
+      console.log('[SCRAPE QUEUE] Connected to Redis');
+    }
+  }
+
+  // Generate unique job ID based on URL and type
   private generateJobId(url: string, type: string): string {
     return crypto
       .createHash('sha256')
@@ -29,39 +48,45 @@ export class ScrapeQueueService {
       .digest('hex');
   }
 
-  async enqueueProduct(url: string) {
+  async enqueueNavigation() {
     if (!this.queue) {
+      console.log('[SCRAPE QUEUE] Skipping navigation enqueue (disabled)');
       return;
     }
 
-    const jobId = this.generateJobId(url, 'product');
+    const url = 'https://www.worldofbooks.com/en-gb';
+    const jobId = this.generateJobId(url, 'navigation');
 
     await this.queue.add(
-      'product',
+      'navigation',
       { url },
       {
-        jobId, // ✅ IDEMPOTENT
-        attempts: 3, // ✅ MAX RETRIES = 3
+        jobId,
+        attempts: 3,
         backoff: {
-          type: 'exponential', // ✅ BACKOFF
-          delay: 2000, // 2s → 4s → 8s
+          type: 'exponential',
+          delay: 5000, // 5s → 10s → 20s
         },
         removeOnComplete: true,
         removeOnFail: false,
       },
     );
+
+    console.log('[SCRAPE QUEUE] Navigation job enqueued');
   }
 
-  async enqueueCategory(url: string) {
+  async enqueueCategory(navigationId: string) {
     if (!this.queue) {
+      console.log('[SCRAPE QUEUE] Skipping category enqueue (disabled)');
       return;
     }
 
+    const url = `https://www.worldofbooks.com/en-gb/navigation/${navigationId}`;
     const jobId = this.generateJobId(url, 'category');
 
     await this.queue.add(
       'category',
-      { url },
+      { url, navigationId },
       {
         jobId,
         attempts: 3,
@@ -73,5 +98,34 @@ export class ScrapeQueueService {
         removeOnFail: false,
       },
     );
+
+    console.log(`[SCRAPE QUEUE] Category job enqueued for navigation ${navigationId}`);
+  }
+
+  async enqueueProduct(categoryId: string) {
+    if (!this.queue) {
+      console.log('[SCRAPE QUEUE] Skipping product enqueue (disabled)');
+      return;
+    }
+
+    const url = `https://www.worldofbooks.com/en-gb/category/${categoryId}`;
+    const jobId = this.generateJobId(url, 'product');
+
+    await this.queue.add(
+      'product',
+      { url, categoryId },
+      {
+        jobId,
+        attempts: 3,
+        backoff: {
+          type: 'exponential',
+          delay: 2000,
+        },
+        removeOnComplete: true,
+        removeOnFail: false,
+      },
+    );
+
+    console.log(`[SCRAPE QUEUE] Product job enqueued for category ${categoryId}`);
   }
 }

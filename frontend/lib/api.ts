@@ -1,43 +1,29 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
-
-/**
- * API client configuration
- */
-export const apiClient = {
-    baseURL: `${API_BASE_URL}`,
-    timeout: 10000,
-};
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
 
 /**
  * Generic fetch wrapper with error handling
  */
 export async function fetchAPI<T>(
-    endpoint: string,
+    path: string,
     options?: RequestInit,
 ): Promise<T> {
-    const url = `${apiClient.baseURL}${endpoint}`;
+    const response = await fetch(`${API_BASE_URL}${path}`, {
+        credentials: 'include', // Include cookies for session management
+        ...options,
+        headers: {
+            'Content-Type': 'application/json',
+            ...options?.headers,
+        },
+    });
 
-    try {
-        const response = await fetch(url, {
-            ...options,
-            headers: {
-                'Content-Type': 'application/json',
-                ...options?.headers,
-            },
-        });
-
-        if (!response.ok) {
-            const error = await response.json().catch(() => ({
-                message: 'An error occurred',
-            }));
-            throw new Error(error.message || `HTTP error! status: ${response.status}`);
-        }
-
-        return await response.json();
-    } catch (error) {
-        console.error('API Error:', error);
-        throw error;
+    if (!response.ok) {
+        const error = await response.json().catch(() => ({
+            message: 'An error occurred',
+        }));
+        throw new Error(error.message || `HTTP error ${response.status}`);
     }
+
+    return response.json();
 }
 
 /**

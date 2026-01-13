@@ -19,11 +19,12 @@ export const metadata: Metadata = {
     description: 'Explore and discover books from World of Books',
     keywords: ['books', 'world of books', 'book explorer', 'online books'],
     authors: [{ name: 'World of Books Explorer Team' }],
-    viewport: 'width=device-width, initial-scale=1',
-    themeColor: [
-        { media: '(prefers-color-scheme: light)', color: '#ffffff' },
-        { media: '(prefers-color-scheme: dark)', color: '#0a0a0a' },
-    ],
+};
+
+export const viewport = {
+    width: 'device-width',
+    initialScale: 1,
+    themeColor: '#000000',
 };
 
 export default function RootLayout({

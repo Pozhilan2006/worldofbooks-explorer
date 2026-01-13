@@ -3,10 +3,16 @@ import { PrismaService } from '../../database/prisma.service';
 import { CreateNavigationDto, UpdateNavigationDto, NavigationQueryDto } from './dto/navigation.dto';
 import { PaginationQueryDto, PaginatedResponse } from '../../common/dto/pagination.dto';
 import { Navigation } from '@prisma/client';
+import { ScrapePolicyService } from '../scrape/scrape-policy.service';
+import { ScrapeQueueService } from '../scrape/scrape-queue.service';
 
 @Injectable()
 export class NavigationService {
-    constructor(private readonly prisma: PrismaService) { }
+    constructor(
+        private readonly prisma: PrismaService,
+        private readonly scrapePolicy: ScrapePolicyService,
+        private readonly scrapeQueue: ScrapeQueueService,
+    ) { }
 
     async create(createDto: CreateNavigationDto): Promise<Navigation> {
         // Check for duplicate slug or sourceUrl
@@ -32,6 +38,14 @@ export class NavigationService {
         paginationDto: PaginationQueryDto,
         queryDto: NavigationQueryDto,
     ): Promise<PaginatedResponse<Navigation>> {
+        // 🔹 CHECK IF SCRAPE IS NEEDED (EMPTY OR >24H)
+        if (await this.scrapePolicy.shouldScrapeNavigation()) {
+            console.log('[NAVIGATION] Triggering scrape - table empty or data stale (>24h)');
+            await this.scrapeQueue.enqueueNavigation();
+        } else {
+            console.log('[NAVIGATION] Using cached data - fresh (<24h)');
+        }
+
         const { page = 1, limit = 10 } = paginationDto;
         const skip = (page - 1) * limit;
 

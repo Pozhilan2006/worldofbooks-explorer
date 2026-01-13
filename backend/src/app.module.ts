@@ -10,6 +10,7 @@ import { NavigationModule } from './modules/navigation/navigation.module';
 import { CategoryModule } from './modules/category/category.module';
 import { ProductModule } from './modules/product/product.module';
 import { ViewHistoryModule } from './modules/view-history/view-history.module';
+import { ScrapeModule } from './modules/scrape/scrape.module';
 
 @Module({
     imports: [
@@ -25,6 +26,7 @@ import { ViewHistoryModule } from './modules/view-history/view-history.module';
         CategoryModule,
         ProductModule,
         ViewHistoryModule,
+        ScrapeModule.forRoot(), // Dynamic module with conditional BullMQ
     ],
     controllers: [AppController],
     providers: [
