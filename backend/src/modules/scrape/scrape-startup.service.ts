@@ -17,10 +17,10 @@ export class ScrapeStartupService implements OnModuleInit {
     ) { }
 
     async onModuleInit() {
-        const isQueueEnabled = process.env.SCRAPE_QUEUE_ENABLED === 'true';
-
-        if (!isQueueEnabled) {
-            console.log('[SCRAPE STARTUP] Queue disabled - skipping auto-scrape check');
+        // Only run if Redis is available
+        // This allows Render to start without Redis initially
+        if (!process.env.REDIS_URL_INTERNAL) {
+            console.log('[SCRAPE STARTUP] Redis not available - skipping auto-scrape check');
             return;
         }
 

@@ -2,21 +2,15 @@
  * Scrape Worker
  * 
  * Standalone BullMQ worker for processing scrape jobs.
- * Only runs when SCRAPE_QUEUE_ENABLED=true.
+ * Only runs when Redis URL is available.
  */
 
 import { Worker } from 'bullmq';
 
-// Check if queue is enabled
-if (process.env.SCRAPE_QUEUE_ENABLED !== 'true') {
-    console.log('[SCRAPE WORKER] Queue disabled (SCRAPE_QUEUE_ENABLED != true) - exiting');
-    process.exit(0);
-}
-
 // Check for Redis URL
 if (!process.env.REDIS_URL_INTERNAL) {
-    console.error('[SCRAPE WORKER] REDIS_URL_INTERNAL not set - cannot connect to Redis');
-    process.exit(1);
+    console.log('[SCRAPE WORKER] Redis URL not set - exiting');
+    process.exit(0);
 }
 
 console.log('[SCRAPE WORKER] Starting worker...');

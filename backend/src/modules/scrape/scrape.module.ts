@@ -17,10 +17,12 @@ import { DatabaseModule } from '../../database/database.module';
 @Module({})
 export class ScrapeModule {
   static forRoot(): DynamicModule {
-    const isQueueEnabled = process.env.SCRAPE_QUEUE_ENABLED === 'true';
+    // Check if Redis is available (not a boolean flag)
+    // This allows Render to start without Redis initially
+    const redisEnabled = !!process.env.REDIS_URL_INTERNAL;
 
-    if (!isQueueEnabled) {
-      console.log('[SCRAPE MODULE] Queue disabled (SCRAPE_QUEUE_ENABLED != true)');
+    if (!redisEnabled) {
+      console.log('[SCRAPE MODULE] Redis not available - queue disabled');
       return {
         module: ScrapeModule,
         imports: [DatabaseModule],
@@ -30,7 +32,7 @@ export class ScrapeModule {
       };
     }
 
-    console.log('[SCRAPE MODULE] Queue enabled - initializing BullMQ');
+    console.log('[SCRAPE MODULE] Redis available - initializing BullMQ');
     return {
       module: ScrapeModule,
       imports: [

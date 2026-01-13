@@ -2,7 +2,7 @@
  * Scrape Queue Service
  * 
  * Manages BullMQ job queue for scraping tasks.
- * Only initializes when SCRAPE_QUEUE_ENABLED=true.
+ * Only initializes when Redis URL is available.
  */
 
 import { Injectable, OnModuleInit } from '@nestjs/common';
@@ -15,17 +15,15 @@ export class ScrapeQueueService implements OnModuleInit {
   private readonly isEnabled: boolean;
 
   constructor() {
-    this.isEnabled = process.env.SCRAPE_QUEUE_ENABLED === 'true';
-
-    if (!this.isEnabled) {
-      console.log('[SCRAPE QUEUE] Disabled - skipping Redis connection');
-      return;
-    }
-
+    // Check if Redis URL is available (not SCRAPE_QUEUE_ENABLED)
+    // This allows Render to start without Redis initially
     if (!process.env.REDIS_URL_INTERNAL) {
-      console.warn('[SCRAPE QUEUE] REDIS_URL_INTERNAL not set - queue will not work');
+      console.log('[SCRAPE QUEUE] Redis URL not set - queue disabled');
+      this.isEnabled = false;
       return;
     }
+
+    this.isEnabled = true;
 
     this.queue = new Queue('scrape-queue', {
       connection: {
