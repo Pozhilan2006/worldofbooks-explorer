@@ -169,3 +169,16 @@ export const viewHistoryApi = {
             body: JSON.stringify(data),
         }),
 };
+
+/**
+ * Helper function for navigation tracking
+ * Silently fails to not block user experience
+ */
+export async function trackPageView(data: TrackViewDto): Promise<void> {
+    try {
+        await viewHistoryApi.track(data);
+    } catch (error) {
+        // Silently fail - don't block user experience
+        console.error('Failed to track page view:', error);
+    }
+}
