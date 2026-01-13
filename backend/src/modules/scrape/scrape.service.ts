@@ -25,15 +25,19 @@ export class ScrapeService implements OnModuleInit {
             return;
         }
 
-        const navCount = await this.prisma.navigation.count();
+        try {
+            const navCount = await this.prisma.navigation.count();
 
-        if (navCount > 0) {
-            this.logger.log('[SCRAPE BOOT] Navigation already exists, skipping');
-            return;
+            if (navCount > 0) {
+                this.logger.log('[SCRAPE BOOT] Navigation already exists, skipping');
+                return;
+            }
+
+            this.logger.log('[SCRAPE BOOT] No navigation found. Triggering initial scrape');
+            await this.scrapeNavigation();
+        } catch (err) {
+            this.logger.warn('[SCRAPE BOOT] DB not ready, skipping bootstrap');
         }
-
-        this.logger.log('[SCRAPE BOOT] No navigation found. Triggering initial scrape');
-        await this.scrapeNavigation();
     }
 
     /**

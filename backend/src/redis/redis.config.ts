@@ -14,6 +14,9 @@ export function getRedisConnection() {
         port: Number(url.port),
         username: url.username || undefined,
         password: url.password || undefined,
-        tls: {}, // REQUIRED for Redis Cloud
+        // 🔥 THIS IS THE CRITICAL PART
+        tls: {
+            rejectUnauthorized: false,
+        },
     };
 }
