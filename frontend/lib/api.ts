@@ -1,9 +1,7 @@
-// Use NEXT_PUBLIC_API_BASE_URL which should include /api path
-// Example: https://worldofbooks-backend.onrender.com/api
-// Default fallback for local development
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000/api';
-
-console.log('API_BASE:', API_BASE);
+// Use NEXT_PUBLIC_API_BASE for production URL, fallback to Render URL if missing
+const API_BASE =
+    process.env.NEXT_PUBLIC_API_BASE ??
+    'https://worldofbooks-backend.onrender.com/api';
 
 
 /**
