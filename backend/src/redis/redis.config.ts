@@ -1,22 +1,10 @@
-import { URL } from 'node:url';
+import IORedis from 'ioredis';
 
-export function getRedisConnection() {
-    const redisUrl = process.env.REDIS_URL;
-
-    if (!redisUrl) {
-        throw new Error('REDIS_URL is missing');
-    }
-
-    const url = new URL(redisUrl);
-
-    return {
-        host: url.hostname,
-        port: Number(url.port),
-        username: url.username || undefined,
-        password: url.password || undefined,
-        // 🔥 THIS IS THE CRITICAL PART
-        tls: {
-            rejectUnauthorized: false,
-        },
-    };
+if (!process.env.REDIS_URL) {
+    throw new Error('REDIS_URL is missing');
 }
+
+export const redisConnection = new IORedis(process.env.REDIS_URL, {
+    maxRetriesPerRequest: null, // Required for BullMQ
+    enableReadyCheck: false,
+});

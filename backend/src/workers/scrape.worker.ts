@@ -15,15 +15,10 @@ import { handleProduct } from './scraper/handlers/product.handler';
 import { ScraperStorage } from './scraper/utils/storage';
 import { retryWithBackoff, isRetryableError, sleep } from './scraper/utils/retry';
 // Check for Redis URL via helper (throws if missing)
-import { getRedisConnection } from '../redis/redis.config';
+import { redisConnection } from '../redis/redis.config';
 
 // Debug check
-try {
-    getRedisConnection();
-} catch (e) {
-    console.error('[SCRAPE WORKER] REDIS_URL missing');
-    setTimeout(() => process.exit(1), 5000);
-}
+console.log('[SCRAPE WORKER] Redis connection initialized');
 
 console.log('[SCRAPE WORKER] Starting worker...');
 
@@ -85,7 +80,7 @@ new Worker(
         }
     },
     {
-        connection: getRedisConnection(),
+        connection: redisConnection as any,
         concurrency: 1, // Keep at 1 for safety
     },
 );

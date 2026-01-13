@@ -6,15 +6,14 @@ import { ScrapeStartupService } from './scrape-startup.service';
 import { ScrapeController } from './scrape.controller';
 import { ScrapeService } from './scrape.service';
 import { DatabaseModule } from '../../database/database.module';
-import { getRedisConnection } from '../../redis/redis.config';
+import { redisConnection } from '../../redis/redis.config';
 
 @Module({
   imports: [
     DatabaseModule,
     // Register Bull with strict connection
-    // This will throw if REDIS_URL is missing, enforcing the single source of truth
     BullModule.forRoot({
-      connection: getRedisConnection(),
+      connection: redisConnection as any,
     }),
     BullModule.registerQueue({
       name: 'scrape-queue',
@@ -36,7 +35,7 @@ export class ScrapeModule {
       imports: [
         DatabaseModule,
         BullModule.forRoot({
-          connection: getRedisConnection(),
+          connection: redisConnection as any,
         }),
         BullModule.registerQueue({
           name: 'scrape-queue',
