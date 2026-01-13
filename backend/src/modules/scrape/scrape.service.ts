@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
@@ -9,11 +9,17 @@ export class ScrapeService {
 
     constructor(
         private prisma: PrismaService,
-        @InjectQueue('scrape-queue') private scrapeQueue: Queue,
+        @Optional()
+        @InjectQueue('scrape-queue') private scrapeQueue?: Queue,
     ) { }
 
     // NAVIGATION RULES
     async scrapeNavigation() {
+        if (!this.scrapeQueue) {
+            this.logger.warn('[SCRAPE] Queue disabled, skipping job enqueue');
+            return { triggered: false, reason: 'queue_disabled' };
+        }
+
         const count = await this.prisma.navigation.count();
 
         if (count === 0) {
@@ -52,6 +58,11 @@ export class ScrapeService {
 
     // CATEGORY RULES
     async scrapeCategory(navigationId: string) {
+        if (!this.scrapeQueue) {
+            this.logger.warn('[SCRAPE] Queue disabled, skipping job enqueue');
+            return { triggered: false, reason: 'queue_disabled', navigationId };
+        }
+
         const count = await this.prisma.category.count({
             where: { navigationId },
         });
@@ -99,6 +110,11 @@ export class ScrapeService {
 
     // PRODUCT RULES
     async scrapeProduct(categoryId: string) {
+        if (!this.scrapeQueue) {
+            this.logger.warn('[SCRAPE] Queue disabled, skipping job enqueue');
+            return { triggered: false, reason: 'queue_disabled', categoryId };
+        }
+
         const count = await this.prisma.product.count({
             where: { categoryId },
         });
@@ -144,3 +160,4 @@ export class ScrapeService {
         return { triggered: false, reason: 'fresh', hours: hours.toFixed(1), categoryId };
     }
 }
+
