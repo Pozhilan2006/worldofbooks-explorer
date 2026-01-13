@@ -16,9 +16,14 @@ import { ScraperStorage } from './scraper/utils/storage';
 import { retryWithBackoff, isRetryableError, sleep } from './scraper/utils/retry';
 
 // Check for Redis URL
+// Debug log (temporary)
+console.log('[DEBUG] REDIS_URL_INTERNAL:', process.env.REDIS_URL_INTERNAL);
+
+// Check for Redis URL
 if (!process.env.REDIS_URL_INTERNAL) {
-    console.log('[SCRAPE WORKER] Redis URL not set - exiting');
-    process.exit(0);
+    console.error('[SCRAPE WORKER] REDIS_URL_INTERNAL missing');
+    // Prevent immediate crash loop on Render
+    setTimeout(() => process.exit(1), 5000);
 }
 
 console.log('[SCRAPE WORKER] Starting worker...');
