@@ -190,7 +190,6 @@ export class ScraperStorage {
                     update: {
                         lastScrapedAt: new Date(data.scrapedAt),
                         productCount: data.productCount,
-                        description: data.description,
                         navigationId: navigation.id,
                     },
                     create: {
@@ -198,7 +197,6 @@ export class ScraperStorage {
                         title: data.title,
                         slug: data.slug,
                         sourceUrl: data.sourceUrl,
-                        description: data.description,
                         productCount: data.productCount,
                         lastScrapedAt: new Date(data.scrapedAt),
                     },
