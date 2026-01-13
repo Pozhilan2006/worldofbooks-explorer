@@ -1,40 +1,31 @@
-/**
- * Navigation Tracker Hook
- * 
- * Automatically tracks page views on route changes
- */
-
-'use client';
-
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
 import { trackPageView } from '@/lib/api';
 
 export function useNavigationTracker() {
     const pathname = usePathname();
+    const lastTrackedPath = useRef<string | null>(null);
 
     useEffect(() => {
-        // Track page view on route change
-        const trackView = async () => {
-            // Extract product ID from path if present
-            const productMatch = pathname.match(/\/products\/([^/]+)/);
-            const productId = productMatch ? productMatch[1] : undefined;
+        // Prevent duplicate tracking for the same path
+        if (lastTrackedPath.current === pathname) return;
 
-            // Extract category ID from path if present
-            const categoryMatch = pathname.match(/\/categories\/([^/]+)/);
-            const categoryId = categoryMatch ? categoryMatch[1] : undefined;
+        lastTrackedPath.current = pathname;
 
-            await trackPageView({
-                path: pathname,
-                title: document.title,
-                productId,
-                categoryId,
-            });
-        };
+        // Extract IDs nicely
+        const productId = pathname.match(/\/products\/([^/]+)/)?.[1];
+        const categoryId = pathname.match(/\/categories\/([^/]+)/)?.[1];
 
-        // Debounce to avoid tracking rapid navigation
-        const timeoutId = setTimeout(trackView, 500);
+        trackPageView({
+            path: pathname,
+            title: document.title,
+            productId,
+            categoryId,
+        });
 
-        return () => clearTimeout(timeoutId);
+        // We only want to run this effect when pathname changes.
+        // We intentionally exclude other dependencies to prevent infinite loops.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [pathname]);
 }
+
