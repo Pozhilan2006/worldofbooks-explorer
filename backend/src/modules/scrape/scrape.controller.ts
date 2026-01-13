@@ -1,7 +1,7 @@
 import { Controller, Post, Param } from '@nestjs/common';
 import { ScrapeService } from './scrape.service';
 
-@Controller('api/scrape')
+@Controller('scrape')
 export class ScrapeController {
     constructor(private readonly scrapeService: ScrapeService) { }
 

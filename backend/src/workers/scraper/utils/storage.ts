@@ -8,6 +8,7 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { SCRAPER_CONFIG } from '../scraper.config';
+import { PrismaClient } from '@prisma/client';
 
 export interface NavigationData {
     title: string;
@@ -93,15 +94,21 @@ export async function loadFromJson<T>(
 }
 
 /**
- * Append data to JSON file
+ * Deduplicate array by key
  */
-export async function appendToJson<T>(
-    filename: string,
-    newData: T,
-): Promise<void> {
-    const existingData = await loadFromJson<T>(filename);
-    existingData.push(newData);
-    await saveToJson(filename, existingData);
+export function deduplicateByKey<T>(
+    array: T[],
+    keyFn: (item: T) => string,
+): T[] {
+    const seen = new Set<string>();
+    return array.filter(item => {
+        const key = keyFn(item);
+        if (seen.has(key)) {
+            return false;
+        }
+        seen.add(key);
+        return true;
+    });
 }
 
 /**
@@ -123,24 +130,6 @@ export function extractProductId(url: string): string {
 }
 
 /**
- * Deduplicate array by key
- */
-export function deduplicateByKey<T>(
-    array: T[],
-    keyFn: (item: T) => string,
-): T[] {
-    const seen = new Set<string>();
-    return array.filter(item => {
-        const key = keyFn(item);
-        if (seen.has(key)) {
-            return false;
-        }
-        seen.add(key);
-        return true;
-    });
-}
-
-/**
  * Storage class for managing scraped data
  */
 export class ScraperStorage {
@@ -148,55 +137,165 @@ export class ScraperStorage {
     private categories: CategoryData[] = [];
     private products: ProductData[] = [];
     private productDetails: ProductDetailData[] = [];
+    private prisma?: PrismaClient;
+
+    constructor(prisma?: PrismaClient) {
+        this.prisma = prisma;
+    }
 
     async addNavigation(data: NavigationData): Promise<void> {
         this.navigation.push(data);
+
+        if (this.prisma) {
+            try {
+                await this.prisma.navigation.upsert({
+                    where: { sourceUrl: data.sourceUrl },
+                    update: {
+                        lastScrapedAt: new Date(data.scrapedAt),
+                        title: data.title,
+                    },
+                    create: {
+                        title: data.title,
+                        slug: data.slug,
+                        sourceUrl: data.sourceUrl,
+                        lastScrapedAt: new Date(data.scrapedAt),
+                    },
+                });
+                console.log(`[DB] Saved Navigation: ${data.title}`);
+            } catch (error) {
+                console.error(`[DB] Failed to save Navigation ${data.title}:`, error);
+            }
+        }
     }
 
     async addCategory(data: CategoryData): Promise<void> {
         this.categories.push(data);
+
+        if (this.prisma) {
+            try {
+                // Find parent Navigation
+                const navigation = await this.prisma.navigation.findUnique({
+                    where: { sourceUrl: data.sourceUrl },
+                });
+
+                if (!navigation) {
+                    // It's possible the sourceUrl matches logic.
+                    // If navigation not found, we can't link.
+                    console.warn(`[DB] Parent Navigation not found for Category ${data.title}`);
+                    return;
+                }
+
+                await this.prisma.category.upsert({
+                    where: { sourceUrl: data.sourceUrl },
+                    update: {
+                        lastScrapedAt: new Date(data.scrapedAt),
+                        productCount: data.productCount,
+                        description: data.description,
+                        navigationId: navigation.id,
+                    },
+                    create: {
+                        navigationId: navigation.id,
+                        title: data.title,
+                        slug: data.slug,
+                        sourceUrl: data.sourceUrl,
+                        description: data.description,
+                        productCount: data.productCount,
+                        lastScrapedAt: new Date(data.scrapedAt),
+                    },
+                });
+            } catch (error) {
+                console.error(`[DB] Failed to save Category ${data.title}:`, error);
+            }
+        }
     }
 
     async addProduct(data: ProductData): Promise<void> {
         this.products.push(data);
+
+        if (this.prisma) {
+            try {
+                let categoryId: string | undefined;
+
+                if (data.categoryUrl) {
+                    const category = await this.prisma.category.findUnique({
+                        where: { sourceUrl: data.categoryUrl },
+                    });
+                    if (category) categoryId = category.id;
+                }
+
+                await this.prisma.product.upsert({
+                    where: { sourceUrl: data.sourceUrl },
+                    update: {
+                        lastScrapedAt: new Date(data.scrapedAt),
+                        price: data.price ? data.price : null,
+                        categoryId,
+                    },
+                    create: {
+                        sourceId: data.sourceId,
+                        title: data.title,
+                        author: data.author,
+                        price: data.price ? data.price : null,
+                        currency: data.currency,
+                        imageUrl: data.imageUrl,
+                        sourceUrl: data.sourceUrl,
+                        categoryId,
+                        lastScrapedAt: new Date(data.scrapedAt),
+                    },
+                });
+            } catch (error) {
+                console.error(`[DB] Failed to save Product ${data.title}:`, error);
+            }
+        }
     }
 
     async addProductDetail(data: ProductDetailData): Promise<void> {
         this.productDetails.push(data);
+
+        if (this.prisma) {
+            try {
+                const product = await this.prisma.product.findUnique({
+                    where: { sourceUrl: data.sourceUrl },
+                });
+
+                if (!product) return;
+
+                await this.prisma.productDetail.upsert({
+                    where: { productId: product.id },
+                    update: {
+                        description: data.description,
+                        isbn: data.isbn,
+                        publisher: data.publisher,
+                        publicationDate: data.publicationDate ? new Date(data.publicationDate) : null,
+                        ratingsAvg: data.rating,
+                        reviewsCount: data.reviewCount,
+                        lastScrapedAt: new Date(data.scrapedAt),
+                    },
+                    create: {
+                        productId: product.id,
+                        description: data.description,
+                        isbn: data.isbn,
+                        publisher: data.publisher,
+                        publicationDate: data.publicationDate ? new Date(data.publicationDate) : null,
+                        ratingsAvg: data.rating,
+                        reviewsCount: data.reviewCount,
+                        lastScrapedAt: new Date(data.scrapedAt),
+                    },
+                });
+            } catch (error) {
+                console.error(`[DB] Failed to save Product Detail ${data.title}:`, error);
+            }
+        }
     }
 
     async saveAll(): Promise<void> {
-        // Deduplicate data
-        const uniqueNavigation = deduplicateByKey(
-            this.navigation,
-            item => item.sourceUrl,
-        );
-        const uniqueCategories = deduplicateByKey(
-            this.categories,
-            item => item.sourceUrl,
-        );
-        const uniqueProducts = deduplicateByKey(
-            this.products,
-            item => item.sourceUrl,
-        );
-        const uniqueProductDetails = deduplicateByKey(
-            this.productDetails,
-            item => item.sourceUrl,
-        );
-
         // Save to JSON files
         await Promise.all([
-            saveToJson('navigation.json', uniqueNavigation),
-            saveToJson('categories.json', uniqueCategories),
-            saveToJson('products.json', uniqueProducts),
-            saveToJson('product-details.json', uniqueProductDetails),
+            saveToJson('navigation.json', this.navigation),
+            saveToJson('categories.json', this.categories),
+            saveToJson('products.json', this.products),
+            saveToJson('product-details.json', this.productDetails),
         ]);
-
-        console.log('\n✅ Data saved successfully:');
-        console.log(`   - Navigation items: ${uniqueNavigation.length}`);
-        console.log(`   - Categories: ${uniqueCategories.length}`);
-        console.log(`   - Products: ${uniqueProducts.length}`);
-        console.log(`   - Product details: ${uniqueProductDetails.length}`);
+        console.log('\n✅ Data saved to local files successfully');
     }
 
     getStats() {
