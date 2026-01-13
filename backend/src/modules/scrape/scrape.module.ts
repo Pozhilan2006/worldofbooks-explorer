@@ -13,6 +13,12 @@ import { DatabaseModule } from '../../database/database.module';
     // Only register Bull if Redis exists
     ...(process.env.REDIS_URL_INTERNAL
       ? [
+        // Configure global Bull settings with connection string
+        BullModule.forRoot({
+          connection: {
+            url: process.env.REDIS_URL_INTERNAL,
+          },
+        }),
         BullModule.registerQueue({
           name: 'scrape-queue',
         }),
@@ -29,14 +35,6 @@ import { DatabaseModule } from '../../database/database.module';
   exports: [ScrapePolicyService, ScrapeQueueService],
 })
 export class ScrapeModule {
-  // Use a static forRoot that just returns the module itself for compatibility
-  // with previous dynamic usage, or simplified.
-  // The user requested standard module structure but I should keep forRoot 
-  // if other modules rely on it or update them.
-  // Actually, feature modules are calling ScrapeModule.forRoot(). 
-  // Let's keep forRoot but simplify implementation as much as possible OR 
-  // just export the class and make forRoot return the same structure.
-
   static forRoot() {
     return {
       module: ScrapeModule,
@@ -44,6 +42,11 @@ export class ScrapeModule {
         DatabaseModule,
         ...(process.env.REDIS_URL_INTERNAL
           ? [
+            BullModule.forRoot({
+              connection: {
+                url: process.env.REDIS_URL_INTERNAL,
+              },
+            }),
             BullModule.registerQueue({
               name: 'scrape-queue',
             }),
