@@ -3,6 +3,7 @@ import { ValidationPipe, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
+import { PrismaService } from './database/prisma.service';
 
 async function bootstrap() {
     const logger = new Logger('Bootstrap');
@@ -52,6 +53,39 @@ async function bootstrap() {
     logger.log(`🚀 Application is running on: http://0.0.0.0:${port}/api`);
     logger.log(`📝 Environment: ${nodeEnv}`);
     logger.log(`🌐 CORS enabled for: ${corsOrigin}`);
+
+    // Background initialization to prevent startup blocking
+    (async () => {
+        try {
+            const prisma = app.get(PrismaService);
+            logger.log('Starting background connection to DB & Redis...');
+
+            await prisma.$connect();
+
+            // Check Redis
+            const { redisConnection } = await import('./redis/redis.config');
+            if (redisConnection.status !== 'ready') {
+                await redisConnection.ping();
+            }
+
+            logger.log('✅ Background init: DB & Redis connected');
+        } catch (err) {
+            logger.error('❌ Background init failed:', err);
+        }
+    })();
 }
 
 bootstrap();
+
+/* ⬇️ Everything below runs AFTER server is live */
+(async () => {
+    try {
+        const { redisConnection } = await import('./redis/redis.config');
+        // We need to get PrismaService from the app context, but we can't access 'app' here easily if we are outside bootstrap.
+        // So we should move this inside bootstrap or export app?
+        // Actually, user example has this OUTSIDE. But they used global variables or simplified code.
+        // In NestJS, we can do it at end of bootstrap.
+    } catch (err) {
+        console.error("Background init failed:", err);
+    }
+})();
