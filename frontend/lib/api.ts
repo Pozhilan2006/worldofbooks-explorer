@@ -141,6 +141,10 @@ export const categoriesApi = {
 };
 
 // Products API
+export async function fetchProducts() {
+    return productsApi.getAll();
+}
+
 export const productsApi = {
     getAll: (params: ProductsQueryParams = {}) => {
         const queryParams = new URLSearchParams();
