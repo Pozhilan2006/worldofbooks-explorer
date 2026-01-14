@@ -38,12 +38,18 @@ async function bootstrap() {
     // Global prefix for all routes
     app.setGlobalPrefix('api');
 
-    const port = configService.get<number>('PORT') || 3000;
+    // Verify PORT exists as required by hosting provider
+    const port = process.env.PORT ? Number(process.env.PORT) : null;
+    if (!port) {
+        throw new Error('PORT is not defined in environment variables');
+    }
+
     const nodeEnv = configService.get<string>('NODE_ENV') || 'development';
 
-    await app.listen(port);
+    // Must listen on 0.0.0.0 for Railway/Render
+    await app.listen(port, '0.0.0.0');
 
-    logger.log(`🚀 Application is running on: http://localhost:${port}/api`);
+    logger.log(`🚀 Application is running on: http://0.0.0.0:${port}/api`);
     logger.log(`📝 Environment: ${nodeEnv}`);
     logger.log(`🌐 CORS enabled for: ${corsOrigin}`);
 }
