@@ -56,6 +56,7 @@ export interface Category {
 export interface Product {
     id: string;
     categoryId: string;
+    category?: { title: string };
     sourceId: string;
     title: string;
     author?: string;
